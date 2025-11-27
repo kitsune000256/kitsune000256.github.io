@@ -4,255 +4,62 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Weapon DB Search</title>
-  <style>
-    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--text:#e6eef6}
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Noto Sans JP',sans-serif;background:linear-gradient(180deg,#071020 0%, #071726 100%);color:var(--text)}
-    .wrap{max-width:960px;margin:28px auto;padding:20px}
-    header{display:flex;gap:16px;align-items:center}
-    h1{margin:0;font-size:20px}
-    .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
-    input[type="search"]{flex:1;min-width:180px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:var(--text);outline:none}
-    select,button{padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:var(--text)}
-    .options{display:flex;gap:8px;align-items:center}
-    .results{margin-top:18px}
-    .card{background:var(--card);padding:12px;border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;gap:12px}
-    .meta{font-size:13px;color:var(--muted)}
-    .id{font-weight:700;color:var(--accent)}
-    .match{font-size:13px;color:#cfeffd}
-    mark{background:rgba(6,182,212,0.18);padding:0 4px;border-radius:4px}
-    .hint{color:var(--muted);font-size:13px;margin-top:8px}
-    .note{margin-top:12px;color:var(--muted);font-size:13px}
-    .noresults{color:var(--muted);padding:12px;background:transparent}
-    footer{margin-top:22px;color:var(--muted);font-size:13px}
-    @media (max-width:640px){.controls{flex-direction:column}}
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div>
-        <h1>Weapon DB 検索</h1>
-        <div class="hint">list.json を同ディレクトリに置いてください。リアルタイム検索・結果上限20件。</div>
+  <div class="container">
+    <header class="topbar">
+      <div class="search-area">
+        <input id="q" type="search" placeholder="検索…（図鑑番号 / 日本語 / 英語 など）" autocomplete="off" />
+        <div class="controls-right">
+          <button id="clear" class="btn">クリア</button>
+        </div>
       </div>
     </header>
 
-    <div class="controls">
-      <input id="q" type="search" placeholder="検索…（図鑑番号 / 日本語 / 英語 など）" autocomplete="off" />
+    <main class="main">
+      <section class="results-section">
+        <div class="update-box">
+          <label>最終更新日時: <input id="lastUpdate" type="text" placeholder="YYYY-MM-DD" /></label>
+          <label>対応バージョン: <input id="version" type="text" placeholder="v1.0.0" /></label>
+        </div>
 
-      <div class="options">
-        <label for="scope">検索範囲:</label>
-        <select id="scope">
-          <option value="all">全てのキー</option>
-          <option value="gallery">図鑑番号のみ</option>
-          <option value="ja">日本語のみ</option>
-          <option value="en-gb">英語(en-gb)のみ</option>
-        </select>
+        <div id="results" class="results-list" aria-live="polite">
+          <div class="empty">ここに検索結果が表示されるぞ。現在は空じゃ。</div>
+        </div>
+      </section>
 
-        <button id="clear">クリア</button>
-      </div>
-    </div>
+      <aside class="sidebar">
+        <div class="box">
+          <div class="box-title">検索対象</div>
+          <div class="box-body">
+            <div class="check-row"><label><input type="checkbox" id="chk-all"> 全選択/全解除</label></div>
+            <div class="check-row"><label><input type="checkbox" class="chk" data-key="gallery" id="chk-gallery"> gallery（図鑑番号）</label></div>
+            <div class="check-row"><label><input type="checkbox" class="chk" data-key="Index" id="chk-index"> Index（Unity Index）</label></div>
+            <hr />
+            <div class="check-row"><label><input type="checkbox" class="chk" data-key="ja" id="chk-ja"> ja（日本語）</label></div>
+            <div class="check-row"><label><input type="checkbox" class="chk" data-key="en-gb" id="chk-en" checked> en-gb（英語）</label></div>
 
-    <div class="results" id="results" aria-live="polite"></div>
+            <hr />
+            <!-- additional languages -->
+            <div class="lang-list" id="langList">
+              <!-- languages will be inserted by script.js -->
+            </div>
+          </div>
+        </div>
 
-    <div class="note">表示順: 図鑑番号 → ja → en-gb → その他 → ヒット順。検索は大文字小文字無視、全角/半角無視、ひらがな/カタカナを同一視する。</div>
+        <div class="box note">
+          <div>表示順: gallery → ja → en-gb → その他 → ヒット順</div>
+          <div>最大 20 件表示。全角/半角・ひらがな/カタカナ・大小無視。</div>
+        </div>
+      </aside>
+    </main>
 
-    <footer>このページを GitHub Pages にアップロードし、list.json を同じリポジトリに置くと動作するぞ。</footer>
+    <div id="toast" class="toast" aria-hidden="true">コピーしました</div>
+
+    <footer class="footer">list.json を同ディレクトリに置いて GitHub Pages へ配置するのじゃ。</footer>
   </div>
 
-<script>
-// ------------------ ユーザーが編集する定数 ------------------
-const JSON_PATH = './list.json'; // 同ディレクトリに置くこと
-const MAX_RESULTS = 20;
-const PRIORITY_KEYS = ['gallery','ja','en-gb']; // 優先順位
-const ALL_LANGUAGE_KEYS = ['de','en-gb','es','fr','ja','ko','pt-br','ru-mo','tr','zh','zh-cht'];
-const EXTRA_KEYS_PRIORITY = ['Index']; // gallery/ja/en-gb のあとに参照する追加キー
-
-// ------------------ 正規化ユーティリティ ------------------
-function normalizeForSearch(s){
-  if(s == null) return '';
-  // NFKC で全角英数→半角などを統一
-  s = String(s).normalize('NFKC');
-  s = s.toLowerCase();
-  // カタカナをひらがなに
-  s = katakanaToHiragana(s);
-  // 空白を折りたたむ
-  s = s.replace(/\s+/g,' ');
-  return s;
-}
-
-function katakanaToHiragana(str){
-  // カタカナの範囲をひらがなにシフト（基本範囲のみ）
-  return str.replace(/[\u30A1-\u30F6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
-}
-
-// 簡易ハイライト（最初の一致部分のみ）
-function highlightMatch(original, query){
-  if(!query) return escapeHtml(original);
-  const normOrig = normalizeForSearch(original);
-  const normQuery = normalizeForSearch(query);
-  const idx = normOrig.indexOf(normQuery);
-  if(idx === -1) return escapeHtml(original);
-  // 元の文字列から該当箇所を取り出すため、慎重に切る
-  // ここでは簡易的に正規表現で位置を探す
-  // 注意: マルチバイトや正規化差でずれる場合があるが概ね用途に十分
-  const re = new RegExp('(' + escapeRegExp(query) + ')','i');
-  return escapeHtml(original).replace(re, '<mark>$1</mark>');
-}
-
-function escapeHtml(s){
-  return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]);
-}
-function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
-
-// ------------------ データ読み込み ------------------
-let DATA = [];
-let NORMALIZED_INDEX = []; // each item: {record, normalizedFields}
-
-async function loadData(){
-  try{
-    const res = await fetch(JSON_PATH);
-    if(!res.ok) throw new Error('ファイルの読み込みに失敗');
-    const json = await res.json();
-    DATA = Array.isArray(json) ? json : [];
-    buildNormalizedIndex();
-  }catch(err){
-    document.getElementById('results').innerHTML = '<div class="noresults">list.json の読み込みに失敗したぞ: ' + escapeHtml(String(err)) + '</div>';
-  }
-}
-
-function buildNormalizedIndex(){
-  NORMALIZED_INDEX = DATA.map(item => {
-    const norm = {};
-    // normalize gallery, Index, id
-    norm.gallery = normalizeForSearch(item.gallery || '');
-    norm.Index = normalizeForSearch(item.Index || '');
-    norm.id = normalizeForSearch(item.id || '');
-    // languages
-    ALL_LANGUAGE_KEYS.forEach(k => { norm[k] = normalizeForSearch(item[k] || ''); });
-    // other keys: any additional keys are also normalized generically
-    const extra = {};
-    for(const k of Object.keys(item)){
-      if(!['id','gallery','Index',...ALL_LANGUAGE_KEYS].includes(k)){
-        extra[k] = normalizeForSearch(item[k]);
-      }
-    }
-    return {record: item, norm, extra};
-  });
-}
-
-// ------------------ 検索処理 ------------------
-function search(query, scope){
-  const q = normalizeForSearch(query);
-  if(!q) return [];
-  const results = [];
-  for(const entry of NORMALIZED_INDEX){
-    const rec = entry.record;
-    const matches = [];
-    // 指定スコープがある場合はそのキー群のみ
-    const keysToCheck = (scope === 'all')
-      ? ['gallery','ja','en-gb',...ALL_LANGUAGE_KEYS, ...EXTRA_KEYS_PRIORITY, 'Index']
-      : [scope];
-
-    for(const key of keysToCheck){
-      // special handling: languages that are in ALL_LANGUAGE_KEYS
-      if(entry.norm.hasOwnProperty(key)){
-        if(entry.norm[key].includes(q)) matches.push({key, value: rec[key]});
-      } else if(key in entry.extra){
-        if(entry.extra[key].includes(q)) matches.push({key, value: rec[key]});
-      }
-    }
-    if(matches.length) results.push({record: rec, matches});
-  }
-
-  // ソート: 優先キーにマッチしたものを上に
-  results.sort((a,b) => compareResults(a,b,q));
-  return results.slice(0, MAX_RESULTS);
-}
-
-function compareResults(a,b,q){
-  // return negative if a should come before b
-  const aPri = priorityScore(a, q);
-  const bPri = priorityScore(b, q);
-  if(aPri !== bPri) return bPri - aPri; // higher score first
-  // 同率はヒット位置で比較（小さい方が先）
-  const aPos = firstMatchPosition(a,q);
-  const bPos = firstMatchPosition(b,q);
-  if(aPos !== bPos) return aPos - bPos;
-  // 最後にid文字列で安定化
-  return (a.record.id || '').localeCompare(b.record.id || '');
-}
-
-function priorityScore(item,q){
-  // gallery match => highest
-  const keys = item.matches.map(m => m.key);
-  if(keys.includes('gallery')) return 100;
-  if(keys.includes('ja')) return 80;
-  if(keys.includes('en-gb')) return 60;
-  // others: boost if Index matches
-  if(keys.includes('Index')) return 40;
-  return 10; // default
-}
-
-function firstMatchPosition(item,q){
-  // find earliest match index among its matched keys
-  let best = Infinity;
-  for(const m of item.matches){
-    // find normalized position
-    const key = m.key;
-    let pos = Infinity;
-    if(NORMALIZED_INDEX.length){
-      // find entry for this record
-      // (we could store positions in index but this is fine for dataset size)
-      const idxEntry = NORMALIZED_INDEX.find(e => e.record === item.record);
-      if(idxEntry){
-        const nv = idxEntry.norm[key] || idxEntry.extra[key] || '';
-        const p = nv.indexOf(normalizeForSearch(q));
-        if(p >= 0) pos = p;
-      }
-    }
-    if(pos < best) best = pos;
-  }
-  return best === Infinity ? 9999 : best;
-}
-
-// ------------------ UI 表示 ------------------
-function renderResults(results, query){
-  const container = document.getElementById('results');
-  if(!results.length){ container.innerHTML = '<div class="noresults">該当なしじゃ。</div>'; return; }
-  const html = results.map(r => {
-    const rec = r.record;
-    // determine primary matched key according to priority order
-    let primary = r.matches.find(m => m.key === 'gallery') || r.matches.find(m => m.key === 'ja') || r.matches.find(m => m.key === 'en-gb') || r.matches[0];
-    const matchedKey = primary.key;
-    const matchedVal = primary.value;
-    const displayId = escapeHtml(rec.id || '');
-    // show matched key and value
-    const matchText = `<div class="match">${escapeHtml(matchedKey)} / ${highlightMatch(String(matchedVal||''), query)} / <span class="id">${displayId}</span></div>`;
-    // show small meta: gallery / Index
-    const meta = `<div class="meta">gallery: ${escapeHtml(rec.gallery||'')}  •  Index: ${escapeHtml(rec.Index||'')}</div>`;
-    return `<div class="card"><div>${matchText}${meta}</div><div class="meta">その他: ${ALL_LANGUAGE_KEYS.map(k=>k+': '+escapeHtml(rec[k]||'')).join(' | ')}</div></div>`;
-  }).join('');
-  container.innerHTML = html;
-}
-
-// ------------------ イベントと初期化 ------------------
-let debounceTimer = null;
-function onInputChange(){
-  const q = document.getElementById('q').value;
-  const scope = document.getElementById('scope').value;
-  if(debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(()=>{
-    const res = search(q, scope);
-    renderResults(res, q);
-  }, 120); // 軽いデバウンス
-}
-
-document.getElementById('q').addEventListener('input', onInputChange);
-document.getElementById('scope').addEventListener('change', onInputChange);
-document.getElementById('clear').addEventListener('click', ()=>{document.getElementById('q').value='';document.getElementById('scope').value='all'; onInputChange();});
-
-// 初回ロード
-loadData();
-</script>
+  <script src="script.js"></script>
 </body>
 </html>
