@@ -19,13 +19,13 @@
 
     <main class="main">
       <section class="results-section">
-        <div class="update-box">
-          <label>最終更新日時: <input id="lastUpdate" type="text" placeholder="YYYY-MM-DD" /></label>
-          <label>対応バージョン: <input id="version" type="text" placeholder="v1.0.0" /></label>
+        <div class="meta-info">
+          <div class="meta-item">最終更新日時： <span id="last-update">2025/11/28  0:01</span></div>
+          <div class="meta-item">対応バージョン： <span id="version-info">26.2.0.0</span></div>
         </div>
 
         <div id="results" class="results-list" aria-live="polite">
-          <div class="empty">ここに検索結果が表示されるぞ。現在は空じゃ。</div>
+          <div class="empty">ここに検索結果が表示されます。</div>
         </div>
       </section>
 
@@ -47,19 +47,6 @@
             </div>
           </div>
         </div>
-
-        <div class="box note">
-          <div>表示順: gallery → ja → en-gb → その他 → ヒット順</div>
-          <div>最大 20 件表示。全角/半角・ひらがな/カタカナ・大小無視。</div>
-        </div>
-      </aside>
-    </main>
-
-    <div id="toast" class="toast" aria-hidden="true">コピーしました</div>
-
-    <footer class="footer">list.json を同ディレクトリに置いて GitHub Pages へ配置するのじゃ。</footer>
-  </div>
-
   <script src="script.js"></script>
 </body>
 </html>
