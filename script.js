@@ -11,7 +11,19 @@ const qEl = document.getElementById('q');
 const resultsEl = document.getElementById('results');
 const chkAll = document.getElementById('chk-all');
 const langListEl = document.getElementById('langList');
-const toast = document.getElementById('toast');
+
+// トースト要素はページによっては存在しない場合があるため、安全に扱うヘルパーを追加
+let toastEl = document.getElementById('toast');
+function ensureToast(){
+  if(!toastEl){
+    toastEl = document.createElement('div');
+    toastEl.id = 'toast';
+    toastEl.className = 'toast';
+    toastEl.setAttribute('aria-hidden','true');
+    document.body.appendChild(toastEl);
+  }
+  return toastEl;
+}
 
 // ------------------ データ格納 ------------------
 let DATA = [];
@@ -46,7 +58,15 @@ function highlightMatch(original, query){
   }catch(e){ return escapeHtml(original || ''); }
 }
 
-function showToast(msg = 'コピーしました'){ toast.textContent = msg; toast.classList.add('show'); toast.setAttribute('aria-hidden','false'); clearTimeout(toast._t); toast._t = setTimeout(()=>{ toast.classList.remove('show'); toast.setAttribute('aria-hidden','true'); }, 1400); }
+// トースト表示を行う。トースト要素が無ければ生成し、clipboard の成功/失敗に応じてメッセージを表示する
+function showToast(msg = 'コピーしました'){
+  const t = ensureToast();
+  t.textContent = msg;
+  t.classList.add('show');
+  t.setAttribute('aria-hidden','false');
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>{ t.classList.remove('show'); t.setAttribute('aria-hidden','true'); }, 1400);
+}
 
 // ------------------ 初期化 UI 設定 ------------------
 function buildLangCheckboxes(){
@@ -179,7 +199,34 @@ function render(results, query){
 function onIdClick(e){
   const id = e.currentTarget.dataset.id || '';
   if(!id) return;
-  navigator.clipboard.writeText(id).then(()=>{ showToast(id + ' をコピーしたぞ'); }, ()=>{ showToast('コピーに失敗したぞ'); });
+  // まず navigator.clipboard を試し、失敗したらフォールバックで textarea を使ってコピーする
+  if(navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function'){
+    navigator.clipboard.writeText(id).then(()=>{ showToast(id + ' をコピーしたぞ'); }, ()=>{
+      // フォールバック
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = id;
+        ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if(ok) showToast(id + ' をコピーしたぞ'); else showToast('コピーに失敗したぞ');
+      }catch(err){ showToast('コピーに失敗したぞ'); }
+    });
+  }else{
+    // フォールバック経路
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = id;
+      ta.style.position = 'fixed'; ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok) showToast(id + ' をコピーしたぞ'); else showToast('コピーに失敗したぞ');
+    }catch(err){ showToast('コピーに失敗したぞ'); }
+  }
 }
 
 // ------------------ イベント ------------------

@@ -173,13 +173,6 @@ input[type=search] {
 	color: var(--muted)
 }
 
-.footer {
-	margin-top: 12px;
-	color: var(--muted);
-	font-size: 13px;
-	text-align: center
-}
-
 .toast {
 	position: fixed;
 	right: 24px;
