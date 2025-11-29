@@ -8,21 +8,30 @@
 </head>
 <body>
   <div class="container">
-    <header class="topbar">
-      <div class="search-area">
-        <input id="q" type="search" placeholder="検索…（図鑑番号 / 日本語 / 英語 など）" autocomplete="off" />
-        <div class="controls-right">
-          <button id="clear" class="btn">クリア</button>
-        </div>
+    <!-- 左側の縦タブ -->
+    <aside class="sidebar-tabs">
+      <div class="tabs-vertical" role="tablist" aria-label="検索対象データベース">
+        <div class="tab-vertical" role="tab" aria-selected="true" data-tab-id="weapons" data-config='{"path":"data/weapons.json","type":"weapons"}'>WeaponID</div>
+        <div class="tab-vertical" role="tab" aria-selected="false" data-tab-id="cabindex" data-config='{"path":"cab_index.json","type":"cabindex"}'>CABIndex</div>
       </div>
-    </header>
+    </aside>
 
-    <main class="main">
-      <section class="results-section">
-        <div class="meta-info">
-          <div class="meta-item">最終更新日時： <span id="last-update">2025/11/29 11:30</span></div>
-          <div class="meta-item">対応バージョン： <span id="version-info">26.2.0.0</span></div>
+    <div class="main-content">
+      <header class="topbar">
+        <div class="search-area">
+          <input id="q" type="search" placeholder="検索…（図鑑番号 / 日本語 / 英語 など）" autocomplete="off" />
+          <div class="controls-right">
+            <div id="clear" class="clear-btn">クリア</div>
+          </div>
         </div>
+      </header>
+
+      <main class="main">
+        <section class="results-section">
+          <div class="meta-info">
+            <div class="meta-item">最終更新日時： <span id="last-update">2025/11/29 11:30</span></div>
+            <div class="meta-item">対応バージョン： <span id="version-info">26.2.0.0</span></div>
+          </div>
 
         <div id="results" class="results-list" aria-live="polite">
           <div class="empty">ここに検索結果が表示されます。</div>
@@ -30,7 +39,7 @@
       </section>
 
       <aside class="sidebar">
-        <div class="box">
+        <div class="box" id="filters-container">
           <div class="box-title">検索対象</div>
           <div class="box-body">
             <div class="check-row"><label><input type="checkbox" id="chk-all"> 全選択/全解除</label></div>
@@ -48,6 +57,7 @@
           </div>
         </div>
       </aside>
+    </main>
     </div>
 
     <div id="toast" class="toast" aria-hidden="true"></div>

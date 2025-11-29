@@ -1,16 +1,33 @@
 // ------------------ 設定 ------------------
-const JSON_PATH = './list.json';
+const JSON_PATH = './list.json'; // 既存のバックアップパス
+let CURRENT_DATA_PATH = 'list.json';
+let CURRENT_TAB_TYPE = 'weapons';
 const MAX_RESULTS = 20;
 const PRIORITY_KEYS = ['gallery','ja','en-gb'];
 const DEFAULT_CHECKED = ['gallery','ja','en-gb'];
 const ALL_KEYS = ['de','en-gb','es','fr','ja','ko','pt-br','ru-mo','tr','zh','zh-cht'];
 const EXTRA_KEYS = ['Index'];
 
+// タブ設定：拡張可能な構造
+const TAB_CONFIG = {
+  weapons: {
+    path: 'list.json',
+    type: 'weapons',
+    showFilters: true
+  },
+  cabindex: {
+    path: 'cab_index.json',
+    type: 'cabindex',
+    showFilters: false
+  }
+};
+
 // ------------------ DOM ------------------
 const qEl = document.getElementById('q');
 const resultsEl = document.getElementById('results');
 const chkAll = document.getElementById('chk-all');
 const langListEl = document.getElementById('langList');
+const filtersContainer = document.getElementById('filters-container');
 
 // トースト要素はページによっては存在しない場合があるため、安全に扱うヘルパーを追加
 let toastEl = document.getElementById('toast');
@@ -94,30 +111,57 @@ function setDefaultChecks(){
 
 // ------------------ データ処理 ------------------
 async function loadData(){
+  return loadDataFrom(CURRENT_DATA_PATH, CURRENT_TAB_TYPE);
+}
+
+async function loadDataFrom(path, tabType){
   try{
-    const r = await fetch(JSON_PATH);
-    if(!r.ok) throw new Error('list.json の読み込みに失敗');
+    const r = await fetch(path);
+    if(!r.ok) throw new Error(path + ' の読み込みに失敗');
     const json = await r.json();
-    DATA = Array.isArray(json) ? json : [];
-    buildIndex();
+    
+    if(tabType === 'cabindex'){
+      // CABIndex は辞書形式 {key: value, ...}
+      DATA = Object.entries(json).map(([key, value]) => ({key, value}));
+    }else{
+      // Weapons等は配列形式
+      DATA = Array.isArray(json) ? json : [];
+    }
+    buildIndex(tabType);
+    return true;
   }catch(err){
-    resultsEl.innerHTML = '<div class="empty">list.json の読み込みに失敗したぞ: ' + escapeHtml(String(err)) + '</div>';
+    resultsEl.innerHTML = '<div class="empty">' + escapeHtml(String(path)) + ' の読み込みに失敗したぞ: ' + escapeHtml(String(err)) + '</div>';
+    DATA = [];
+    INDEX = [];
+    return false;
   }
 }
 
-function buildIndex(){
-  INDEX = DATA.map(item => {
-    const norm = {};
-    norm.gallery = normalizeForSearch(item.gallery||'');
-    norm.Index = normalizeForSearch(item.Index||'');
-    norm.id = normalizeForSearch(item.id||'');
-    ALL_KEYS.forEach(k => { norm[k] = normalizeForSearch(item[k] || ''); });
-    const extras = {};
-    for(const k of Object.keys(item)){
-      if(!['id','gallery','Index',...ALL_KEYS].includes(k)) extras[k] = normalizeForSearch(item[k]);
-    }
-    return {record:item, norm, extras};
-  });
+function buildIndex(tabType){
+  if(tabType === 'cabindex'){
+    // CABIndex の場合は簡易インデックス
+    INDEX = DATA.map(item => {
+      const norm = {
+        key: normalizeForSearch(item.key || ''),
+        value: normalizeForSearch(item.value || '')
+      };
+      return {record: item, norm, extras: {}};
+    });
+  }else{
+    // Weapons等の場合は従来通り
+    INDEX = DATA.map(item => {
+      const norm = {};
+      norm.gallery = normalizeForSearch(item.gallery||'');
+      norm.Index = normalizeForSearch(item.Index||'');
+      norm.id = normalizeForSearch(item.id||'');
+      ALL_KEYS.forEach(k => { norm[k] = normalizeForSearch(item[k] || ''); });
+      const extras = {};
+      for(const k of Object.keys(item)){
+        if(!['id','gallery','Index',...ALL_KEYS].includes(k)) extras[k] = normalizeForSearch(item[k]);
+      }
+      return {record:item, norm, extras};
+    });
+  }
 }
 
 // ------------------ 検索 ------------------
@@ -125,10 +169,41 @@ function search(query){
   const q = normalizeForSearch(query);
   if(!q) return [];
   const results = [];
+  
+  if(CURRENT_TAB_TYPE === 'cabindex'){
+    return searchCABIndex(q);
+  }else{
+    return searchWeapons(q);
+  }
+}
+
+function searchCABIndex(q){
+  const results = [];
+  for(const ent of INDEX){
+    const rec = ent.record; // {key, value}
+    const matches = [];
+    // キーの前方一致（例: ユーザーが 'w_8' を入力した場合）
+    if(ent.norm.key.startsWith(q)){
+      // 表示/コピーする value としてキーを返す
+      matches.push({key: 'Key', value: rec.key, raw: rec.value});
+    }
+    // 値（CAB-xxxx 形式）の「CAB-」以降の前方一致（例: 'c0141...'）
+    const valueNormalized = (ent.norm.value || '').replace(/^cab-/, ''); // 「cab-」プレフィックスを除去
+    if(valueNormalized.startsWith(q)){
+      // 値でヒットした場合も、ユーザーが期待する "キー" を返す仕様にする
+      matches.push({key: 'Value', value: rec.key, raw: rec.value});
+    }
+    if(matches.length) results.push({record: rec, matches});
+  }
+  return results.slice(0, MAX_RESULTS);
+}
+
+function searchWeapons(q){
+  const results = [];
   // build enabled keys set
   enabledKeys = new Set(); document.querySelectorAll('.chk').forEach(cb => { if(cb.checked) enabledKeys.add(cb.dataset.key); });
   // always include Index if checked via separate element
-  if(document.getElementById('chk-index').checked) enabledKeys.add('Index');
+  if(document.getElementById('chk-index') && document.getElementById('chk-index').checked) enabledKeys.add('Index');
   // iterate
   for(const ent of INDEX){
     const rec = ent.record; const matches = [];
@@ -180,6 +255,33 @@ function compareResults(a,b,q){
 // ------------------ レンダリング ------------------
 function render(results, query){
   if(!results.length){ resultsEl.innerHTML = '<div class="empty">該当なし</div>'; return; }
+  
+  if(CURRENT_TAB_TYPE === 'cabindex'){
+    renderCABIndex(results, query);
+  }else{
+    renderWeapons(results, query);
+  }
+}
+
+function renderCABIndex(results, query){
+  const rows = results.map(r => {
+    const rec = r.record; // {key, value}
+    const primary = r.matches[0] || {};
+    // primary.value は検索で格納したキー（例: w_8）
+    const displayKey = primary.value || rec.key || '';
+    const cabValue = rec.value || '';
+    return `<div class="result-row">
+      <div class="result-key">${escapeHtml(primary.key || 'Value')}</div>
+      <div class="result-name">${highlightMatch(String(cabValue), query)}</div>
+      <div class="result-id" data-id="${escapeHtml(displayKey)}" title="クリックでキーをコピー">${escapeHtml(displayKey)}</div>
+    </div>`;
+  }).join('');
+  resultsEl.innerHTML = rows;
+  // attach copy handlers (キーをコピー)
+  document.querySelectorAll('.result-id').forEach(el => el.addEventListener('click', onIdClick));
+}
+
+function renderWeapons(results, query){
   const rows = results.map(r => {
     const rec = r.record;
     let primary = r.matches.find(m=>m.key==='gallery') || r.matches.find(m=>m.key==='ja') || r.matches.find(m=>m.key==='en-gb') || r.matches[0];
@@ -192,7 +294,6 @@ function render(results, query){
     </div>`;
   }).join('');
   resultsEl.innerHTML = rows;
-  // attach copy handlers
   document.querySelectorAll('.result-id').forEach(el => el.addEventListener('click', onIdClick));
 }
 
@@ -249,6 +350,31 @@ function toggleAll(val){ document.querySelectorAll('.chk').forEach(c=>c.checked 
 
 // ------------------ 初期化 ------------------
 function init(){
+  // 縦タブ初期化
+  document.querySelectorAll('.tab-vertical').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      document.querySelectorAll('.tab-vertical').forEach(b => b.setAttribute('aria-selected','false'));
+      btn.setAttribute('aria-selected','true');
+      const tabId = btn.dataset.tabId;
+      const config = TAB_CONFIG[tabId];
+      if(!config) return;
+      
+      CURRENT_DATA_PATH = config.path;
+      CURRENT_TAB_TYPE = config.type;
+      
+      // フィルター表示/非表示切り替え
+      if(config.showFilters){
+        filtersContainer.style.display = 'block';
+      }else{
+        filtersContainer.style.display = 'none';
+      }
+      
+      await loadDataFrom(CURRENT_DATA_PATH, CURRENT_TAB_TYPE);
+      qEl.value = '';
+      onInput();
+    });
+  });
+  
   buildLangCheckboxes();
   setDefaultChecks();
   // ensure default state: only gallery, ja, en-gb ON if desired
