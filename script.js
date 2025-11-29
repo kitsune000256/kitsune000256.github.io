@@ -159,7 +159,7 @@ function compareResults(a,b,q){
 
 // ------------------ レンダリング ------------------
 function render(results, query){
-  if(!results.length){ resultsEl.innerHTML = '<div class="empty">該当なしじゃ。</div>'; return; }
+  if(!results.length){ resultsEl.innerHTML = '<div class="empty">該当なし</div>'; return; }
   const rows = results.map(r => {
     const rec = r.record;
     let primary = r.matches.find(m=>m.key==='gallery') || r.matches.find(m=>m.key==='ja') || r.matches.find(m=>m.key==='en-gb') || r.matches[0];
